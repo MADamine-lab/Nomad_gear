@@ -1,0 +1,123 @@
+/* App-specific styles */
+
+/* Smooth transitions for all interactive elements */
+button, a, input {
+  transition: all 0.3s ease;
+}
+
+/* Focus states for accessibility */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid #D9A24A;
+  outline-offset: 2px;
+}
+
+/* Card image hover effect */
+.card-image {
+  will-change: transform;
+}
+
+/* Polaroid hover lift */
+.polaroid {
+  will-change: transform;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.polaroid:hover {
+  box-shadow: 0 12px 32px rgba(0,0,0,0.2);
+}
+
+/* Section transitions */
+section {
+  position: relative;
+}
+
+/* Button press effect */
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
+/* Filter chip active state */
+.filter-active {
+  background-color: #1A221B;
+  color: white;
+}
+
+/* Review card stars */
+.star-filled {
+  fill: #D9A24A;
+  color: #D9A24A;
+}
+
+/* Navigation backdrop blur support */
+@supports (backdrop-filter: blur(12px)) {
+  .nav-blur {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+}
+
+/* Mobile menu animation */
+.mobile-menu-enter {
+  animation: slideDown 0.3s ease-out forwards;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Horizontal scroll snap for destinations */
+.scroll-container {
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scroll-container > div > div {
+  scroll-snap-align: start;
+}
+
+/* Responsive typography adjustments */
+@media (max-width: 640px) {
+  .font-heading {
+    letter-spacing: 0.01em;
+  }
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Loading state for images */
+img {
+  background-color: #E8EDE9;
+}
+
+/* Custom selection color */
+::selection {
+  background-color: #D9A24A;
+  color: white;
+}
+
+::-moz-selection {
+  background-color: #D9A24A;
+  color: white;
+}
