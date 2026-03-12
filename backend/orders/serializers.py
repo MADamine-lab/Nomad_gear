@@ -6,14 +6,26 @@ class PaymentSerializer(serializers.ModelSerializer):
     """
     Serializer for payment records
     """
+    payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    
     class Meta:
         model = Payment
         fields = [
-            'id', 'order', 'payment_method', 'amount', 'currency', 'status',
-            'transaction_id', 'reference_number', 'notes', 'created_at', 'completed_at'
+            'id', 'order', 'payment_method', 'payment_method_display', 'amount', 
+            'currency', 'status', 'status_display', 'transaction_id', 'payment_intent_id',
+            'reference_number', 'notes', 'provider_response', 'created_at', 'completed_at'
         ]
-        read_only_fields = ['id', 'created_at', 'completed_at']
-
+        read_only_fields = [
+            'id', 'created_at', 'completed_at', 'payment_method_display', 
+            'status_display', 'provider_response'
+        ]
+    
+    def validate_payment_method(self, value):
+        valid_methods = ['card', 'paypal', 'bank_transfer', 'cash', 'stripe', 'flouci']
+        if value not in valid_methods:
+            raise serializers.ValidationError(f'Invalid payment method. Choose from: {", ".join(valid_methods)}')
+        return value
 
 class OrderTimelineSerializer(serializers.ModelSerializer):
     """
@@ -46,20 +58,21 @@ class GearConditionReportSerializer(serializers.ModelSerializer):
 
 class OrderListSerializer(serializers.ModelSerializer):
     """
-    Lightweight serializer for listing orders
+    Lightweight serializer for listing orders (with optional timeline for history view)
     """
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
     gear_name = serializers.CharField(source='gear.name', read_only=True)
     gear_image = serializers.ImageField(source='gear.main_image', read_only=True)
+    timeline = OrderTimelineSerializer(many=True, read_only=True)  # include brief event list
     
     class Meta:
         model = Order
         fields = [
             'id', 'order_number', 'user', 'user_name', 'gear', 'gear_name', 'gear_image',
             'start_date', 'end_date', 'quantity', 'final_price', 'currency', 'status',
-            'payment_status', 'created_at'
+            'payment_status', 'created_at', 'timeline'
         ]
-        read_only_fields = ['id', 'order_number', 'user_name', 'gear_name', 'created_at']
+        read_only_fields = ['id', 'order_number', 'user_name', 'gear_name', 'created_at', 'timeline']
 
 
 class OrderDetailSerializer(serializers.ModelSerializer):

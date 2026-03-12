@@ -109,7 +109,7 @@ export const useOrders = () => {
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get('/orders/orders/');
+      const response = await api.get('/orders/');
       setOrders(response.data.results || response.data);
       setError(null);
     } catch (err) {
@@ -123,7 +123,7 @@ export const useOrders = () => {
   const createOrder = useCallback(async (orderData: any) => {
     setLoading(true);
     try {
-      const response = await api.post('/orders/orders/', orderData);
+      const response = await api.post('/orders/', orderData);
       setOrders([...orders, response.data]);
       setError(null);
       return response.data;
@@ -139,6 +139,28 @@ export const useOrders = () => {
   return { orders, loading, error, fetchOrders, createOrder };
 };
 ```
+
+### Order history modal
+
+A new `OrderHistory` component displays a modal containing the current user's
+rental history. It relies on the existing `useOrders()` hook (same API call as
+`/orders/`) and is opened via a **History** button in the navigation.
+
+Example wiring in `App.tsx`:
+
+```tsx
+const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+// inside nav when authenticated
+<button onClick={() => setShowHistoryModal(true)}>
+  <Package size={16} /> History
+</button>
+
+// render near root of JSX
+<OrderHistory open={showHistoryModal} onClose={() => setShowHistoryModal(false)} />
+```
+
+This gives users quick access to a list of their past rentals.
 
 ## Step 4: Update Components & Environment Setup
 
@@ -665,12 +687,12 @@ GET  /gear/search/          - Search gear
 
 ### Orders
 ```
-GET  /orders/orders/                    - List orders
-POST /orders/orders/                    - Create order
-GET  /orders/orders/{id}/               - Get order details
-POST /orders/orders/{id}/confirm/       - Confirm order
-POST /orders/orders/{id}/cancel/        - Cancel order
-POST /orders/orders/{id}/complete/      - Complete rental
+GET  /orders/                    - List orders
+POST /orders/                    - Create order
+GET  /orders/{id}/               - Get order details
+POST /orders/{id}/confirm/       - Confirm order
+POST /orders/{id}/cancel/        - Cancel order
+POST /orders/{id}/complete/      - Complete rental
 ```
 
 ### Payments

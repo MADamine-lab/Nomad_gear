@@ -101,7 +101,7 @@ export const api = {
   },
   orders: {
     create: (data, token) => 
-      fetch(`${API_BASE}/orders/orders/`, {
+      fetch(`${API_BASE}/orders/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

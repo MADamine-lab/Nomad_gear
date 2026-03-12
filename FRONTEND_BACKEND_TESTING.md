@@ -13,7 +13,7 @@
 - `GET /api/v1/gear/` - List gear items
 - `POST /api/v1/auth/token/` - Login
 - `POST /api/v1/users/register/` - Registration
-- `POST /api/v1/orders/orders/` - Create reservation
+- `POST /api/orders/` - Create reservation
 - `POST /api/v1/gear/{id}/check_availability/` - Check availability
 
 ---
@@ -142,7 +142,7 @@ Frontend checks: isAuthenticated?
 
 ### 3. **User Submits Reservation**
 ```
-ReservationModal sends POST to /orders/orders/
+ReservationModal sends POST to /orders/
    ↓
 Backend creates Order with:
    - gear_id, start_date, end_date

@@ -250,3 +250,22 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }
+# Payment Gateway Configuration
+
+# Stripe Configuration
+STRIPE_PUBLISHABLE_KEY = config('STRIPE_PUBLISHABLE_KEY', default='')
+STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY', default='')
+STRIPE_WEBHOOK_SECRET = config('STRIPE_WEBHOOK_SECRET', default='')
+
+# Flouci Configuration (Tunisian Payment Gateway)
+FLOUCI_APP_TOKEN = config('FLOUCI_APP_TOKEN', default='')
+FLOUCI_APP_SECRET = config('FLOUCI_APP_SECRET', default='')
+FLOUCI_ACCEPT_CARD = config('FLOUCI_ACCEPT_CARD', default='true', cast=bool)
+FLOUCI_ENVIRONMENT = config('FLOUCI_ENVIRONMENT', default='sandbox')  # sandbox or production
+
+# Cash on Delivery
+COD_ENABLED = config('COD_ENABLED', default=True, cast=bool)
+COD_EXTRA_FEE = config('COD_EXTRA_FEE', default=5.00, cast=float)  # Extra fee for COD in TND
+
+# Frontend URL for payment redirects
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')

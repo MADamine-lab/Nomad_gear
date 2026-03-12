@@ -156,17 +156,17 @@ The API will be available at `http://localhost:8000`
 
 ### Orders
 
-- `GET /api/v1/orders/orders/` - List user's orders
-- `POST /api/v1/orders/orders/` - Create new order
-- `GET /api/v1/orders/orders/{id}/` - Get order details
-- `POST /api/v1/orders/orders/{id}/confirm/` - Confirm order
-- `POST /api/v1/orders/orders/{id}/cancel/` - Cancel order
-- `POST /api/v1/orders/orders/{id}/start_rental/` - Start rental
-- `POST /api/v1/orders/orders/{id}/complete_rental/` - Complete rental
-- `POST /api/v1/orders/orders/{id}/report_damage/` - Report damage
-- `GET /api/v1/orders/orders/active_rentals/` - Get active rentals
-- `GET /api/v1/orders/orders/overdue_rentals/` - Get overdue rentals
-- `GET /api/v1/orders/orders/statistics/` - Get order statistics
+- `GET /api/orders/` - List user's orders
+- `POST /api/orders/` - Create new order
+- `GET /api/orders/{id}/` - Get order details
+- `POST /api/orders/{id}/confirm/` - Confirm order
+- `POST /api/orders/{id}/cancel/` - Cancel order
+- `POST /api/orders/{id}/start_rental/` - Start rental
+- `POST /api/orders/{id}/complete_rental/` - Complete rental
+- `POST /api/orders/{id}/report_damage/` - Report damage
+- `GET /api/orders/active_rentals/` - Get active rentals
+- `GET /api/orders/overdue_rentals/` - Get overdue rentals
+- `GET /api/orders/statistics/` - Get order statistics
 
 ### Payments
 
@@ -354,7 +354,7 @@ const login = async (email, password) => {
 
 // Using token in requests
 const getOrders = async (token) => {
-  const response = await fetch('http://localhost:8000/api/v1/orders/orders/', {
+  const response = await fetch('http://localhost:8000/api/orders/', {
     headers: { 'Authorization': `Bearer ${token}` }
   });
   return response.json();

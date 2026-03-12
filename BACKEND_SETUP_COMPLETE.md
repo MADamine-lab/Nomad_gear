@@ -229,10 +229,10 @@ http://localhost:8000/api/v1/
 | `/gear/{id}/` | GET | Gear details |
 | `/gear/{id}/check_availability/` | POST | Check rental availability |
 | `/gear/{id}/reviews/` | GET, POST | Gear reviews |
-| `/orders/orders/` | GET, POST | List/create orders |
-| `/orders/orders/{id}/` | GET | Order details |
-| `/orders/orders/{id}/confirm/` | POST | Confirm order |
-| `/orders/orders/{id}/cancel/` | POST | Cancel order |
+| `/orders/` | GET, POST | List/create orders |
+| `/orders/{id}/` | GET | Order details |
+| `/orders/{id}/confirm/` | POST | Confirm order |
+| `/orders/{id}/cancel/` | POST | Cancel order |
 | `/orders/payments/process_payment/` | POST | Process payment |
 
 ### 🛠️ Installed Packages
@@ -265,7 +265,7 @@ After creating a superuser, you can manage:
 1. **User registers** → `/auth/token/` gets JWT token
 2. **User browses gear** → `/gear/` lists available items
 3. **User checks dates** → `/gear/{id}/check_availability/`
-4. **User creates order** → `/orders/orders/` with rental details
+4. **User creates order** → `/orders/` with rental details
 5. **System calculates price** → Based on duration and rates
 6. **User pays** → `/orders/payments/process_payment/`
 7. **Order confirmed** → Status changes to "confirmed"

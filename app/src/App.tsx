@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { GearListComponent } from './components/GearListComponent'
 import { ReservationModal } from './components/ReservationModal'
+import { OrderHistory } from './components/OrderHistory'
 import { LoginPrompt } from './components/LoginPrompt'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { useAuth } from './hooks/useApi'
@@ -43,6 +44,9 @@ function App() {
   const [showReservationModal, setShowReservationModal] = useState(false)
   
   const [showRecommendation, setShowRecommendation] = useState(false)
+
+  // Order history modal state
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
   // Check if user is logged in on mount
   useEffect(() => {
     const token = localStorage.getItem('access_token')
@@ -135,6 +139,8 @@ function App() {
   return (
     <ErrorBoundary>
       <div className="relative min-h-screen bg-offwhite">
+        {/* order history modal */}
+        <OrderHistory open={showHistoryModal} onClose={() => setShowHistoryModal(false)} />
       {/* Grain Overlay */}
       <div className="grain-overlay" />
       
@@ -173,6 +179,13 @@ function App() {
                 <div className="flex items-center gap-2 text-white text-sm">
                   <span>{user?.username || 'User'}</span>
                 </div>
+                {/* history button */}
+                <button
+                  onClick={() => setShowHistoryModal(true)}
+                  className="px-4 py-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition text-xs font-semibold flex items-center gap-2"
+                >
+                  <Package size={16} /> History
+                </button>
                 <button 
                   onClick={handleLogout}
                   className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition text-xs font-semibold flex items-center gap-2"
@@ -218,6 +231,15 @@ function App() {
                 <>
                   <div className="border-t border-white/20 pt-4">
                     <p className="text-white/70 text-sm mb-2">Logged in as: {user?.username || 'User'}</p>
+                    <button
+                      onClick={() => {
+                        setShowHistoryModal(true)
+                        setMobileMenuOpen(false)
+                      }}
+                      className="w-full text-left nav-link text-lg flex items-center gap-2"
+                    >
+                      <Package size={18} /> History
+                    </button>
                     <button 
                       onClick={() => {
                         handleLogout()

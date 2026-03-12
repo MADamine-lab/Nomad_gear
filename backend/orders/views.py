@@ -1,12 +1,20 @@
 from rest_framework import viewsets, status, permissions, filters
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Sum
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from datetime import datetime, timedelta
 from decimal import Decimal
+import stripe
+import requests
+import json
+from django.conf import settings
 
 from .models import Order, Payment, OrderTimeline, GearConditionReport
 from .serializers import (
@@ -15,6 +23,16 @@ from .serializers import (
     OrderTimelineSerializer, GearConditionReportSerializer
 )
 from gear.models import GearAvailability
+
+
+@api_view(['POST', 'GET'])
+@permission_classes([IsAuthenticated])
+def test_orders(request):
+    return Response({
+        'method': request.method,
+        'message': 'API is working!',
+        'user': str(request.user)
+    })
 
 
 class OrderPagination(PageNumberPagination):
@@ -60,6 +78,14 @@ class OrderViewSet(viewsets.ModelViewSet):
         """
         Create new order with automatic pricing calculation
         """
+        print("=" * 50)
+        print("CREATE METHOD CALLED!")
+        print(f"Request method: {request.method}")
+        print(f"Request path: {request.path}")
+        print(f"Request data: {request.data}")
+        print(f"User: {request.user}")
+        print("=" * 50)
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -109,7 +135,9 @@ class OrderViewSet(viewsets.ModelViewSet):
             description='Order created by customer',
             created_by=request.user
         )
-        
+
+        print(f"Order created successfully: {order.order_number}")
+
         return Response(
             OrderDetailSerializer(order).data,
             status=status.HTTP_201_CREATED
@@ -279,7 +307,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
 class PaymentViewSet(viewsets.ModelViewSet):
     """
-    Payment management viewset
+    Payment management viewset with Stripe, Flouci, and Cash on Delivery support
     """
     serializer_class = PaymentSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -291,11 +319,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
         return Payment.objects.filter(order__user=user)
     
     @action(detail=False, methods=['post'])
-    def process_payment(self, request):
-        """Process payment for an order"""
+    def create_stripe_payment(self, request):
+        """Create Stripe PaymentIntent"""
         order_id = request.data.get('order_id')
-        payment_method = request.data.get('payment_method')
-        amount = request.data.get('amount')
         
         try:
             order = Order.objects.get(id=order_id, user=request.user)
@@ -305,31 +331,336 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Create payment
+        # Check if already paid
+        if order.payment_status == 'paid':
+            return Response(
+                {'detail': 'Order already paid'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Initialize Stripe
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            
+            # Create PaymentIntent
+            intent = stripe.PaymentIntent.create(
+                amount=int(order.final_price * 100),  # Convert to cents
+                currency=order.currency.lower(),
+                metadata={
+                    'order_id': order.id,
+                    'order_number': order.order_number,
+                    'user_id': request.user.id,
+                },
+                automatic_payment_methods={'enabled': True},
+            )
+            
+            # Create payment record
+            payment = Payment.objects.create(
+                order=order,
+                payment_method='stripe',
+                amount=order.final_price,
+                currency=order.currency,
+                status='pending',
+                payment_intent_id=intent.id,
+                provider_response={'client_secret': intent.client_secret}
+            )
+            
+            return Response({
+                'client_secret': intent.client_secret,
+                'payment_id': payment.id,
+                'amount': order.final_price,
+                'currency': order.currency,
+            })
+            
+        except stripe.error.StripeError as e:
+            return Response(
+                {'detail': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @action(detail=False, methods=['post'])
+    def confirm_stripe_payment(self, request):
+        """Confirm Stripe payment after frontend completion"""
+        payment_intent_id = request.data.get('payment_intent_id')
+        
+        try:
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+            
+            payment = Payment.objects.get(payment_intent_id=payment_intent_id)
+            
+            if intent.status == 'succeeded':
+                payment.status = 'completed'
+                payment.completed_at = timezone.now()
+                payment.provider_response = intent
+                payment.save()
+                
+                # Update order status
+                payment.order.payment_status = 'paid'
+                payment.order.save()
+                
+                # Create timeline entry
+                OrderTimeline.objects.create(
+                    order=payment.order,
+                    event_type='payment_received',
+                    description=f'Payment completed via Stripe - {payment.amount} {payment.currency}',
+                    created_by=request.user
+                )
+                
+                return Response({
+                    'status': 'success',
+                    'message': 'Payment confirmed',
+                    'order': OrderDetailSerializer(payment.order).data
+                })
+            else:
+                payment.status = 'failed'
+                payment.save()
+                return Response(
+                    {'detail': f'Payment failed: {intent.status}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+        except Payment.DoesNotExist:
+            return Response(
+                {'detail': 'Payment not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except stripe.error.StripeError as e:
+            return Response(
+                {'detail': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @action(detail=False, methods=['post'])
+    def create_flouci_payment(self, request):
+        """Create Flouci payment (Tunisian gateway)"""
+        order_id = request.data.get('order_id')
+        
+        try:
+            order = Order.objects.get(id=order_id, user=request.user)
+        except Order.DoesNotExist:
+            return Response(
+                {'detail': 'Order not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        try:
+            # Flouci API endpoint
+            flouci_url = "https://api.flouci.com/api/generate_payment"
+            
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {settings.FLOUCI_APP_TOKEN}'
+            }
+            
+            payload = {
+                'app_token': settings.FLOUCI_APP_TOKEN,
+                'app_secret': settings.FLOUCI_APP_SECRET,
+                'amount': str(int(order.final_price * 1000)),  # Flouci uses millimes
+                'accept_card': settings.FLOUCI_ACCEPT_CARD,
+                'session_timeout_secs': 1200,
+                'success_link': f'{settings.FRONTEND_URL}/payment/success?order={order.id}',
+                'fail_link': f'{settings.FRONTEND_URL}/payment/failed?order={order.id}',
+                'developer_tracking_id': str(order.id),
+            }
+            
+            response = requests.post(flouci_url, json=payload, headers=headers)
+            data = response.json()
+            
+            if response.status_code == 200 and 'payment_id' in data:
+                # Create payment record
+                payment = Payment.objects.create(
+                    order=order,
+                    payment_method='flouci',
+                    amount=order.final_price,
+                    currency=order.currency,
+                    status='pending',
+                    payment_intent_id=data['payment_id'],
+                    provider_response=data
+                )
+                
+                return Response({
+                    'payment_id': data['payment_id'],
+                    'payment_url': data.get('payment_url'),
+                    'amount': order.final_price,
+                    'currency': order.currency,
+                })
+            else:
+                return Response(
+                    {'detail': data.get('message', 'Flouci payment creation failed')},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+        except requests.RequestException as e:
+            return Response(
+                {'detail': f'Payment gateway error: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['post'])
+    def confirm_flouci_payment(self, request):
+        """Verify Flouci payment status"""
+        payment_id = request.data.get('payment_id')
+        
+        try:
+            payment = Payment.objects.get(payment_intent_id=payment_id)
+            
+            # Verify with Flouci API
+            verify_url = f"https://api.flouci.com/api/verify_payment/{payment_id}"
+            headers = {
+                'Authorization': f'Bearer {settings.FLOUCI_APP_TOKEN}'
+            }
+            
+            response = requests.get(verify_url, headers=headers)
+            data = response.json()
+            
+            if data.get('status') == 'completed':
+                payment.status = 'completed'
+                payment.completed_at = timezone.now()
+                payment.provider_response = data
+                payment.save()
+                
+                # Update order
+                payment.order.payment_status = 'paid'
+                payment.order.save()
+                
+                # Create timeline
+                OrderTimeline.objects.create(
+                    order=payment.order,
+                    event_type='payment_received',
+                    description=f'Payment completed via Flouci - {payment.amount} {payment.currency}',
+                    created_by=request.user
+                )
+                
+                return Response({
+                    'status': 'success',
+                    'message': 'Payment confirmed',
+                    'order': OrderDetailSerializer(payment.order).data
+                })
+            else:
+                return Response({
+                    'status': 'pending',
+                    'message': 'Payment still processing'
+                })
+                
+        except Payment.DoesNotExist:
+            return Response(
+                {'detail': 'Payment not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    
+    @action(detail=False, methods=['post'])
+    def create_cod_order(self, request):
+        """Create Cash on Delivery order"""
+        order_id = request.data.get('order_id')
+        
+        try:
+            order = Order.objects.get(id=order_id, user=request.user)
+        except Order.DoesNotExist:
+            return Response(
+                {'detail': 'Order not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        if not settings.COD_ENABLED:
+            return Response(
+                {'detail': 'Cash on Delivery is not available'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Calculate COD fee
+        cod_fee = Decimal(str(settings.COD_EXTRA_FEE))
+        total_with_cod = order.final_price + cod_fee
+        
+        # Create payment record
         payment = Payment.objects.create(
             order=order,
-            payment_method=payment_method,
-            amount=amount,
+            payment_method='cash',
+            amount=total_with_cod,
             currency=order.currency,
-            status='processing',
-            transaction_id=f"TXN-{timezone.now().timestamp()}"
+            status='pending',  # Will be completed when delivered
+            notes=f'Cash on Delivery - Extra fee: {cod_fee} {order.currency}'
         )
         
-        # In production, integrate with payment gateway here
-        payment.status = 'completed'
-        payment.completed_at = timezone.now()
-        payment.save()
-        
-        # Update order payment status
-        total_paid = order.payments.filter(status='completed').aggregate(Sum('amount'))['amount__sum'] or 0
-        if total_paid >= order.final_price:
-            order.payment_status = 'paid'
-        elif total_paid > 0:
-            order.payment_status = 'partial'
+        # Update order with COD fee
+        order.final_price = total_with_cod
+        order.payment_status = 'partial'  # Will be paid on delivery
         order.save()
         
-        return Response(PaymentSerializer(payment).data, status=status.HTTP_201_CREATED)
+        # Create timeline
+        OrderTimeline.objects.create(
+            order=order,
+            event_type='payment_received',
+            description=f'Cash on Delivery order created - Total: {total_with_cod} {order.currency} (includes {cod_fee} COD fee)',
+            created_by=request.user
+        )
+        
+        return Response({
+            'status': 'success',
+            'message': 'Cash on Delivery order confirmed',
+            'payment_method': 'cash',
+            'amount_due': total_with_cod,
+            'cod_fee': cod_fee,
+            'order': OrderDetailSerializer(order).data
+        })
+    
+    @action(detail=False, methods=['post'])
+    def process_payment(self, request):
+        """Legacy payment processing - redirects to appropriate method"""
+        payment_method = request.data.get('payment_method')
+        
+        if payment_method == 'stripe':
+            return self.create_stripe_payment(request)
+        elif payment_method == 'flouci':
+            return self.create_flouci_payment(request)
+        elif payment_method == 'cash':
+            return self.create_cod_order(request)
+        else:
+            return Response(
+                {'detail': 'Invalid payment method'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
+
+# Add webhook handler for Stripe
+@method_decorator(csrf_exempt, name='dispatch')
+class StripeWebhookView(APIView):
+    """
+    Handle Stripe webhooks
+    """
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        payload = request.body
+        sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
+        
+        try:
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+            )
+        except ValueError:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        except stripe.error.SignatureVerificationError:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        
+        # Handle successful payment
+        if event['type'] == 'payment_intent.succeeded':
+            payment_intent = event['data']['object']
+            try:
+                payment = Payment.objects.get(payment_intent_id=payment_intent['id'])
+                payment.status = 'completed'
+                payment.completed_at = timezone.now()
+                payment.provider_response = payment_intent
+                payment.save()
+                
+                payment.order.payment_status = 'paid'
+                payment.order.save()
+                
+            except Payment.DoesNotExist:
+                pass
+        
+        return Response({'status': 'success'})
 
 class GearConditionReportViewSet(viewsets.ModelViewSet):
     """

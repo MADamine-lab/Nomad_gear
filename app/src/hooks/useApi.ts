@@ -243,12 +243,15 @@ export const useOrders = () => {
   const fetchOrders = useCallback(async (filters?: any) => {
     setLoading(true);
     try {
-      const response = await api.get('/orders/orders/', { params: filters });
+      const params = { page_size: 100, ...filters }; // request more items
+      console.log('fetchOrders params', params);
+      const response = await api.get('/orders/', { params });
+      console.log('fetchOrders response', response.data);
       setOrders(response.data.results || response.data);
       setError(null);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to fetch orders');
-      console.error(err);
+      console.error('fetchOrders error', err);
     } finally {
       setLoading(false);
     }
@@ -257,7 +260,7 @@ export const useOrders = () => {
   const getOrderDetail = useCallback(async (id: number) => {
     setLoading(true);
     try {
-      const response = await api.get(`/orders/orders/${id}/`);
+      const response = await api.get(`/orders/${id}/`);
       setError(null);
       return response.data;
     } catch (err: any) {
@@ -272,7 +275,7 @@ export const useOrders = () => {
   const createOrder = useCallback(async (orderData: any) => {
     setLoading(true);
     try {
-      const response = await api.post('/orders/orders/', orderData);
+      const response = await api.post('/orders/', orderData);
       setOrders([...orders, response.data]);
       setError(null);
       return response.data;
@@ -288,7 +291,7 @@ export const useOrders = () => {
   const cancelOrder = useCallback(async (id: number, reason?: string) => {
     setLoading(true);
     try {
-      const response = await api.post(`/orders/orders/${id}/cancel/`, { reason });
+      const response = await api.post(`/orders/${id}/cancel/`, { reason });
       setOrders(orders.map(o => o.id === id ? response.data : o));
       setError(null);
       return response.data;
@@ -304,7 +307,7 @@ export const useOrders = () => {
   const confirmOrder = useCallback(async (id: number) => {
     setLoading(true);
     try {
-      const response = await api.post(`/orders/orders/${id}/confirm/`);
+      const response = await api.post(`/orders/${id}/confirm/`);
       setOrders(orders.map(o => o.id === id ? response.data : o));
       setError(null);
       return response.data;
@@ -336,7 +339,7 @@ export const usePayments = () => {
   const processPayment = useCallback(async (paymentData: any) => {
     setLoading(true);
     try {
-      const response = await api.post('/orders/payments/process_payment/', paymentData);
+      const response = await api.post('/payments/process_payment/', paymentData);
       setError(null);
       return response.data;
     } catch (err: any) {

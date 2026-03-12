@@ -126,7 +126,9 @@ class Payment(models.Model):
         ('card', 'Credit/Debit Card'),
         ('paypal', 'PayPal'),
         ('bank_transfer', 'Bank Transfer'),
-        ('cash', 'Cash'),
+        ('cash', 'Cash on Delivery'),
+        ('stripe', 'Stripe'),
+        ('flouci', 'Flouci'),
     ]
     
     STATUS_CHOICES = [
@@ -148,6 +150,10 @@ class Payment(models.Model):
     # Reference Information
     transaction_id = models.CharField(max_length=100, blank=True, unique=True)
     reference_number = models.CharField(max_length=100, blank=True)
+    payment_intent_id = models.CharField(max_length=100, blank=True, db_index=True)
+    
+    # Payment Provider Data
+    provider_response = models.JSONField(default=dict, blank=True)
     
     # Notes
     notes = models.TextField(blank=True)
@@ -168,7 +174,6 @@ class Payment(models.Model):
     
     def __str__(self):
         return f"Payment for {self.order.order_number} - {self.amount} {self.currency}"
-
 
 class OrderTimeline(models.Model):
     """
