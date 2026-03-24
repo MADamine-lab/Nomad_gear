@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { cookies } from '@/lib/utils';
 
 const API_BASE_URL = 'http://localhost:8000/api';
 
@@ -7,13 +8,13 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: false, // Set to true if using cookies
+  withCredentials: true, // Enable cookies
 });
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('access_token');
+    const token = cookies.get('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -35,14 +36,14 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refresh_token');
+        const refreshToken = cookies.get('refresh_token');
         if (refreshToken) {
           const response = await axios.post(`${API_BASE_URL}/auth/token/refresh/`, {
             refresh: refreshToken,
-          });
+          }, { withCredentials: true });
 
           const { access } = response.data;
-          localStorage.setItem('access_token', access);
+          cookies.set('access_token', access, { path: '/', secure: false, sameSite: 'Lax' });
 
           // Retry original request with new token
           originalRequest.headers.Authorization = `Bearer ${access}`;

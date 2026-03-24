@@ -28,6 +28,7 @@ import { LoginPrompt } from './components/LoginPrompt'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { useAuth } from './hooks/useApi'
 import GearRecommendation from './components/GearRecommendation'
+import { cookies } from './lib/utils'
 
 function App() {
   const [isScrolled, setIsScrolled] = useState(false)
@@ -49,7 +50,7 @@ function App() {
   const [showHistoryModal, setShowHistoryModal] = useState(false)
   // Check if user is logged in on mount
   useEffect(() => {
-    const token = localStorage.getItem('access_token')
+    const token = cookies.get('access_token')
     setIsAuthenticated(!!token)
   }, [])
 

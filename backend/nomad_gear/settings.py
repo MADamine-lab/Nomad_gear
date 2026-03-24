@@ -195,6 +195,15 @@ SIMPLE_JWT = {
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
     'AUTH_REFRESH_TOKEN_CLASS': 'rest_framework_simplejwt.tokens.RefreshToken',
     'AUTH_HEADER_TYPES': ('Bearer',),
+
+    # Cookie settings
+    'AUTH_COOKIE': 'access_token',  # Cookie name for access token
+    'AUTH_COOKIE_REFRESH': 'refresh_token',  # Cookie name for refresh token
+    'AUTH_COOKIE_DOMAIN': None,  # Cookie domain
+    'AUTH_COOKIE_SECURE': False,  # Set to True in production with HTTPS
+    'AUTH_COOKIE_HTTP_ONLY': False,  # Set to True for security (prevents JS access)
+    'AUTH_COOKIE_PATH': '/',  # Cookie path
+    'AUTH_COOKIE_SAMESITE': 'Lax',  # SameSite setting
 }
 
 # Logging

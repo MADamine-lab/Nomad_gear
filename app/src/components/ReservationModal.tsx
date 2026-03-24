@@ -19,30 +19,22 @@ import {
   Truck,
   ChevronRight
 } from 'lucide-react'
+import { cookies } from '../lib/utils'
 
-interface GearItem {
-  id: number
-  name: string
-  description: string
-  daily_price: number
-  weekly_price?: number
-  monthly_price?: number
+interface ReservationModalProps {
+  gear: any
+  isOpen: boolean
+  onClose: () => void
+  isAuthenticated: boolean
+  onLoginRequired?: () => void
 }
 
 interface AddOnItem {
   id: string
   name: string
   price: number
-  icon: React.ElementType
+  icon: any
   quantity: number
-}
-
-interface ReservationModalProps {
-  gear: GearItem | null
-  isOpen: boolean
-  onClose: () => void
-  isAuthenticated: boolean
-  onLoginRequired?: () => void
 }
 
 // Nature color palette
@@ -204,7 +196,7 @@ export function ReservationModal({
   }
 
   const createOrder = async () => {
-    const token = localStorage.getItem('access_token')
+    const token = cookies.get('access_token')
     
     const orderData = {
       gear: gear?.id,

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import api from '../services/api';
+import { cookies } from '../lib/utils';
 
 export const useGear = () => {
   const [gear, setGear] = useState<any[]>([]);
@@ -109,8 +110,8 @@ export const useAuth = () => {
     setError(null);
     try {
       const response = await api.post('/auth/token/', { username, password });
-      localStorage.setItem('access_token', response.data.access);
-      localStorage.setItem('refresh_token', response.data.refresh);
+      cookies.set('access_token', response.data.access, { path: '/', secure: false, sameSite: 'Lax' });
+      cookies.set('refresh_token', response.data.refresh, { path: '/', secure: false, sameSite: 'Lax' });
       
       // Fetch user data
       const userResponse = await api.get('/users/me/');
@@ -217,10 +218,17 @@ export const useAuth = () => {
     }
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    setUser(null);
+  const logout = useCallback(async () => {
+    try {
+      await api.post('/auth/logout/');
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      // Clear cookies regardless of API call success
+      cookies.remove('access_token');
+      cookies.remove('refresh_token');
+      setUser(null);
+    }
   }, []);
 
   return { 
